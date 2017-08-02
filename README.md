@@ -1,1 +1,3 @@
-# maze\n Explore procedurally-generated mazes
+# maze
+---
+Explore procedurally-generated mazes
