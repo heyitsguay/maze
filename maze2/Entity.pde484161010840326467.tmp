@@ -1,0 +1,297 @@
+class Entity
+{
+  // width and height of the Entity's image box.
+  float w;
+  float h;
+  
+  // Entity mass.
+  float mass;
+  
+  // Position x and y (World) coordinates (upper-left hand corner of the image box).
+  float x;
+  float y;
+  
+  // x and y Tile coordinates of the upper-left corner of Entity's image box.
+  int xt;
+  int yt;
+  
+  // Velocity x and y coordinates.
+  float vx;
+  float vy;
+  float vmax; // maximum magnitude of vx or vy (so max speed is sqrt(2)*vmax).
+  
+  // Acceleration x and y coordinates.
+  float ax;
+  float ay;
+  float amax;
+  
+  // Entity's contribution to friction.
+  float friction;
+  
+  // Allow the bounding box to be (slightly) smaller than the image box.
+  float boundingBoxOffset; 
+  
+  float xbb, ybb; // Entity position (x,y) World coordinates, offset by boundingBoxOffset.
+  float wbb, hbb; // Entity bounding box width and height.
+
+  // True if this Entity has collided with something during this frame.
+  boolean justCollided;
+  
+  // HSB triplet of Entity color values, range [0,1].
+  float c_h, c_s, c_b;
+
+  // If ghost, this Entity passes through other Entities and blocked Tiles (no collisions).
+  boolean ghost;  
+  
+  // If fixed, never update position
+  boolean fixed;
+
+  
+  ////////////////////////////////////////////////////////////////////////////////
+  Entity(
+    float w_,
+    float h_,
+    float boundingBoxOffset_,
+    float mass_,
+    float x_,
+    float y_,
+    float vx_,
+    float vy_,
+    float vmax_,
+    float ax_,
+    float ay_,
+    float amax_,
+    float friction_,
+    float c_h_,
+    float c_s_,
+    float c_b_,
+    boolean ghost_,
+    boolean fixed_
+    )
+    {
+      w = w_;
+      h = h_;
+      
+      boundingBoxOffset = boundingBoxOffset_;
+      
+      mass = mass_;
+      
+      x = x_;
+      y = y_;
+      xt = int(x / TILE_SIZE);
+      yt = int(y / TILE_SIZE);
+      
+      xbb = x + boundingBoxOffset;
+      ybb = y + boundingBoxOffset;
+      wbb = w - 2 * boundingBoxOffset;
+      hbb = h - 2 * boundingBoxOffset;
+      
+      vx = vx_;
+      vy = vy_;
+      vmax = vmax_;
+      ax = ax_;
+      ay = ay_;
+      amax = amax_;
+      friction = friction_;
+      c_h = c_h_;
+      c_s = c_s_;
+      c_b = c_b_;
+      ghost = ghost_;
+      fixed = fixed_;
+      
+      justCollided = false;
+    }
+    
+  ////////////////////////////////////////////////////////////////////////////////////
+  void updatePhysics()
+  {
+    if(!fixed)
+    {
+      // Add acceleration and friction contributions to velocity.
+      vx = constrain(vx + dt * (ax - sign(vx) * friction), -vmax, vmax);
+      vy = constrain(vy + dt * (ay - sign(vy) * friction), -vmax, vmax);
+      
+      // If vx or vy are very small, threshold to 0.
+      float vcutoff = 0.01;
+      if(abs(vx) < vcutoff)
+      {
+        vx = 0;
+      }
+      if(abs(vy) < vcutoff)
+      {
+        vy = 0;
+      }
+    
+      // Zero out force.
+      ax = 0;
+      ay = 0;
+    
+      move(dt * vx, dt * vy);
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////
+  void display()
+  {
+    noStroke();
+    pushMatrix();
+    translate(-screenX, -screenY);
+    
+    // For now just draw a rectangle with a uniform fill.
+    fill(c_h, c_s, c_b);
+    rect(x, y, w, h); 
+    
+    popMatrix();
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////
+  void move(float dx, float dy)
+  {
+    float[] newPosition = {0,0};
+    
+    if(ghost) // No collisions for ghosts!
+    {
+      newPosition[0] = x + dx;
+      newPosition[1] = y + dy;
+    }
+    else // Check for collisions.
+    {
+      newPosition = tileCollisionCheck(dx, dy);
+    }
+    
+    // Update x and y. Constrain each Entity to lie between the second and second-to-last Tiles.
+    x = constrain(newPosition[0], TILE_SIZE, (tilesX - 2) * TILE_SIZE);
+    y = constrain(newPosition[1], TILE_SIZE, (tilesY - 2) * TILE_SIZE);
+    
+    // Update xt and yt.
+    xt = int(x / TILE_SIZE);
+    yt = int(y / TILE_SIZE);
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////
+  float[] tileCollisionCheck(float dx, float dy)
+  {
+    // Calculate the coordinates of the Entity's 4 corners in the tentative new position.
+    float xw0 = xbb + dx;
+    float xw1 = xw0 + wbb;
+    float yw0 = ybb + dy;
+    float yw1 = yw0 + hbb;
+    
+    // Return the new Entity (x,y) in this array.
+    float[] newPosition = {0,0};
+    
+    // And the coordinates of the Tiles they're in.
+    int xt0 = int(xw0) / TILE_SIZE;
+    int xt1 = int(xw1) / TILE_SIZE;
+    int yt0 = int(yw0) / TILE_SIZE;
+    int yt1 = int(yw1) / TILE_SIZE;    
+    
+    // Check for collisions with blocked Tiles.
+    boolean blocked00 = tiles[xt0][yt0].blocked;
+    boolean blocked01 = tiles[xt0][yt1].blocked;
+    boolean blocked10 = tiles[xt1][yt0].blocked;
+    boolean blocked11 = tiles[xt1][yt1].blocked;
+    
+    // Collision checks.
+    if(dx > 0) // moving right.
+    {
+      if(blocked10 || blocked11) // collided to the right.
+      {
+        xw0 = xt1 * TILE_SIZE - wbb - 0.0001;
+      }
+    }
+    else if(dx < 0) // moving left.
+    {
+      if(blocked00 || blocked01) // collided to the left.
+      {
+        xw0 = (xt0 + 1) * TILE_SIZE;
+      }
+    }
+    
+    if(dy > 0) // moving down.
+    {
+      if(blocked01 || blocked11) // collided downward.
+      {
+        yw0 = yt1 * TILE_SIZE - hbb - 0.0001;
+      }
+    }
+    else if(dy < 0) // moving up.
+    {
+      if(blocked00 || blocked10)
+      {
+        yw0 = yt0 * TILE_SIZE + TILE_SIZE;
+      }
+    }
+    
+    newPosition[0] = xw0 - boundingBoxOffset;
+    newPosition[1] = yw0 - boundingBoxOffset;
+    
+    return newPosition;
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  void addS(float dx_, float dy_)
+  {
+    // Additively modify the Entity's position.
+    
+    x = constrain(x + dx_, 1, pixWidth - TILE_SIZE - w);
+    y = constrain(y + dy_, 1, pixHeight - TILE_SIZE - h);
+  }
+  
+  ///////////////////////////////////////////////////////////////////////////////
+  void addV(float dvx_, float dvy_)
+  {
+    // Additively modify the Entity's velocity.
+    
+    vx = constrain(vx + dvx_, -vmax, vmax);
+    vy = constrain(vy + dvy_, -vmax, vmax);
+  }
+  
+  ///////////////////////////////////////////////////////////////////////////////
+  void addP(float dpx_, float dpy_)
+  {
+    // Additively modify the Entity's momentum.
+    // Same as addV() but weighted by mass.
+    
+    if(mass > 0)
+    {
+      // divide dp through by mass
+      addV(dpx_/mass, dpy_/mass);
+    }
+    else
+    {
+      // mass is 0 or negative. Just treat it
+      // as if mass = 1.
+      addV(dpx_, dpy_);
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  void addA(float dax_, float day_)
+  {
+    // Additively modify the Entity's acceleration.
+    
+    ax = constrain(ax + dax_, -amax, amax);
+    ay = constrain(ay + day_, -amax, amax);
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////
+  void addF(float dfx_, float dfy_)
+  {
+    // Apply an additive force to the Entity.
+    // Same as addA() but weighted by mass.
+    
+    if(mass > 0)
+    {
+      // divide dp through by mass
+      addA(dfx_/mass, dfy_/mass);
+    }
+    else
+    {
+      // mass is 0 or negative. Just treat it
+      // as if mass = 1.
+      addA(dfx_, dfy_);
+    }
+  }
+  
+}

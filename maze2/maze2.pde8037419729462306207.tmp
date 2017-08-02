@@ -1,0 +1,61 @@
+// maze2 - Matthew Guay, 01/04/2015
+// An iteration on 'maze', hopefully a refinement!
+// Procedurally-generated mazes with some other cool things happening.
+
+// Globally visible variables
+final int TILE_SIZE = 32; // Size of each Tile in pixels.
+final int CHUNK_SIZE = 32; // 32x32 Tiles in a Chunk.
+final int CHUNKSX = 20;
+final int CHUNKSY = 12;
+
+int tilesX = CHUNKSX * CHUNK_SIZE;
+int tilesY = CHUNKSY * CHUNK_SIZE;
+int chunkPix = CHUNK_SIZE * TILE_SIZE;
+
+// Maximum number of Tiles potentially on the screen at once.
+int tilesOnScreenX;
+int tilesOnScreenY;
+
+// Screen position within the maze is calculated relative to the
+// upper-left hand corner of the window. maxScreenX, maxScreenY
+// give the coordinates for the largest value this anchor point 
+// can take.
+int maxScreenX, maxScreenY;
+
+// Tile array containing all the Tiles in the game.
+Tile[][] tiles;
+
+// Chunk array containing all the Chunks in the game.
+Chunk[][] chunks;
+
+// A world object that contains functions for altering Arrays tiles and chunks.
+World world; 
+
+// Start at tileArray[xstart][ystart], win at tileArray[xwin][ywin]
+int xstart, ystart;
+int xwin, ywin;
+
+int t = 0; // Current 'time', incremented every frame
+
+// keyList[key]==true if key is currently pressed, where key is a Unicode character between 0 and numKeys.
+boolean[] keyList;
+int numKeys = 256;
+
+void setup()
+{
+  size(1920, 1080);
+  background(0);
+  colorMode(HSB, 1.0);
+  smooth();
+  
+  tilesOnScreenX = (int)(width / TILE_SIZE) + 2;
+  tilesOnScreenY = (int)(height / TILE_SIZE) + 2;
+  
+  maxScreenX = tilesX * TILE_SIZE - width;
+  maxScreenY = tilesY * TILE_SIZE - height;
+  
+  world = new World();
+}
+  
+  
+  

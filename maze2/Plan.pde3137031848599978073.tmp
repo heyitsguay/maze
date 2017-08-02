@@ -1,0 +1,180 @@
+// Plans are generative procedures for Chunks and Tiles - creating or altering Tiles, Entities, Items, etc. given some numerical input data.
+interface Plan
+{
+   void run();
+}
+
+// ***************************************
+// ***************************************
+class TilePlan implements Plan
+{
+  // TilePlan changes N Tiles within the Chunk specified in run(), to 
+  // specified types at specified locations, relative to the input
+  // Chunk's top-left corner.
+  
+  IntList tileCoordinatesX;
+  IntList tileCoordinatesY;
+  IntList tileTypes;
+  
+  float xw0, yw0;
+  
+  /////////////////////////////////////////////////////////////////////////////////////////
+  TilePlan(float xw0_, float yw0_)
+  {
+    xw0 = xw0_;
+    yw0 = yw0_;
+    
+    tileCoordinatesX = new IntList();
+    tileCoordinatesY = new IntList();
+    tileTypes = new IntList();
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////////
+  void addTile(int xt_, int yt_, int type_)
+  {
+    tileCoordinatesX.append(xt_);
+    tileCoordinatesY.append(yt_);
+    tileTypes.append(type_);
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////////
+  void removeTile(int xt_, int yt_)
+  {
+    // Checks to see if any Tile changed by the Plan has Tile coordinates 
+    // (xt_,yt_), and removes it if so.
+    for(int i = tileTypes.size() - 1; i >= 0; i--)
+    {
+      if( (tileCoordinatesX.get(i) == xt_) && (tileCoordinatesY.get(i) == yt_) )
+      {
+        tileCoordinatesX.remove(i);
+        tileCoordinatesY.remove(i);
+        tileTypes.remove(i);
+      }
+    }
+  }      
+  
+  ///////////////////////////////////////////////////////////////////////////////////////////
+  void run()
+  {
+    // Get the Tile coordinates of the Tile containing the basepoint.
+    int xt0 = int(xw0 / TILE_SIZE);
+    int yt0 = int(yw0 / TILE_SIZE);
+    
+    for(int i = 0; i < tileTypes.size(); i++)
+    {
+      // Figure out absolute Tile coordinate of the Tile to change.
+      int xtabs = xt0 + tileCoordinatesX.get(i);
+      int ytabs = yt0 + tileCoordinatesY.get(i);
+      
+      // Set the new Tile type.
+      tiles[xtabs][ytabs].setType(tileTypes.get(i));
+      
+    }
+  }
+}
+
+// **********************************************
+// **********************************************
+class MazePlan1 implements Plan
+{
+  int[] numRoundsList = {60};
+  int[] creatorsPerRoundList = {5};
+  int[] numStartWinRoundsList = {5};
+  
+  ///////////////////////////////////////////////////////////////////////////////////////
+  MazePlan1()
+  {
+   
+  }
+  
+  ///////////////////////////////////////////////////////////////////////////////////////
+  void run()
+  {  
+    int numSizes = numRoundsList.length;
+    
+    for(int r = 0; r < numSizes; r++)
+    {
+      int numRounds = numRoundsList[r];
+      int creatorsPerRound = creatorsPerRoundList[r];
+      int numStartWinRounds = numStartWinRoundsList[r];
+      
+      xtstart = 20;
+      ytstart = 20;
+      xtwin = tilesX - int(floor(random(20, 80)));
+      ytwin = tilesY - int(floor(random(20, 80)));
+      
+      // Corridor width
+      int corridorWidth = 1;
+      
+      for(int i = 0; i < numStartWinRounds; i++)
+      {
+        // Add 1 creator at the starting and the winning Tiles per round.
+        
+        ArrayList<Creator> creators = new ArrayList<Creator>();
+        
+        float avoidProbability = 0.3 + 0.6 * float(i) / float(numRounds);
+        
+        // Add starting and winning Creators.
+        creators.add(new Creator(xtstart, ytstart, 0, 0, 2, 5, 2, 2, corridorWidth, avoidProbability, D_DOWN, 3 * tilesX / 2));
+        creators.add(new Creator(xtwin, ytwin, 0, 0, -2, 5, 2, 2, corridorWidth, avoidProbability, D_UP, 3 * tilesX / 2));
+        
+        runCreators(creators);
+      } 
+        
+        
+      for(int i = 0; i < numRounds; i++)
+      {
+        // Add the random Creators and run them.
+        
+        // Initialize the ArrayList for this round's Creators.
+        ArrayList<Creator> creators = new ArrayList<Creator>(); 
+        
+        // Self-avoidance parameter for the random walk.
+        float avoidProbability = 0.25 + 0.75 * float(i) / float(numRounds);
+        
+        for(int j = 0; j < creatorsPerRound; j++)
+        {
+          float moreAvoidProbability = avoidProbability + (1 - avoidProbability) * float(creatorsPerRound - j) / creatorsPerRound;
+          
+          int xt0 = int(random(tilesX - 2)) + 1;
+          int yt0 = int(random(tilesY - 2)) + 1;
+          float directionBias = random(0, 2*PI);
+          float biasStrength = random(0, 0.4);
+          float winBias = random(-0.015, 0.015);
+          float lengthMean = 3 + 3 * (creatorsPerRound  - j) / creatorsPerRound;
+          
+          creators.add(new Creator(xt0, yt0, directionBias, biasStrength, winBias, lengthMean, 2, 2, corridorWidth, moreAvoidProbability, creatorDirection(int(random(0, 4))), floor(2.3 * tilesX / 2)));
+        }
+      
+        runCreators(creators);
+      }
+    }
+  }
+  
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  void runCreators(ArrayList<Creator> creators_)
+  {
+    // Let the Creators do their thing.
+    while(creators_.size() > 0) 
+    {
+      // while any Creators are still alive
+      
+      // Move all the Creators in creators.
+      for(int k = creators_.size()-1; k>=0; k--)
+      {
+        Creator aCreator = creators_.get(k);
+        
+        if(aCreator.lifeRemaining == 0)
+        {
+          // aCreator is dead.
+          creators_.remove(k);
+        }
+        else
+        {
+          aCreator.move();
+        }
+      }
+    }
+  }
+  
+}

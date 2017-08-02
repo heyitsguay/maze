@@ -1,0 +1,7 @@
+void mouseClicked()
+{
+  int xtm = int((xScreen + mouseX) / TILE_SIZE);
+  int ytm = int((yScreen + mouseY) / TILE_SIZE);
+  Tile aTile = tiles[xtm][ytm];
+  println(aTile.type);
+}
